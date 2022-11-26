@@ -357,6 +357,12 @@ def drawNumbers(app):
             if app.userBoard.board[row][col] in "123456789":
                 drawLabel(app.userBoard.board[row][col],cellLeft+cellWidth/2,
                         cellTop+cellHeight/2, size = 16)
+            else:
+                drawLegals(app.userBoard.legals[row][col],cellLeft+cellWidth/2,
+                        cellTop+cellHeight/2)
+
+def drawLegals(legals,midX,midY):
+    for i in range(9)
 
 def drawBoardBorder(app):
     drawRect(app.boardLeft, app.boardTop, app.boardWidth, app.boardHeight,
@@ -539,7 +545,6 @@ def findNext(app, selection,dx,dy):
     return (selection[0],selection[1])
 
 def moveMade(app,row,col):
-    print(app.userBoard.legals)
     if app.setUserNewBoard:
         board = app.givenBoard
     else:
