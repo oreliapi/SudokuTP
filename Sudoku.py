@@ -189,10 +189,15 @@ class State:
     def __init__(self,board):
         self.board = board
         self.legals = copy.deepcopy(State.fullLegals)
+        for row in range(9):
+            for col in range(9):
+                if self.board[row][col] != '0':
+                    self.legals[row][col] = set()
+        self.startLegals = copy.deepcopy(self.legals)
     def set(self,row,col,value):
         self.board[row][col] = value
     def updateLegals(self):
-        self.legals = copy.deepcopy(State.fullLegals)
+        self.legals = self.startLegals
         for row in range(9):
             for col in range(9):
                 self.ban(row,col,self.board[row][col])
@@ -253,6 +258,8 @@ def newBoard(app):
         app.manual = True
     else:
         app.manual = False
+    if not app.manual:
+        app.userBoard.updateLegals()
         
 def userNewBoard(app):
     app.illegal = []
@@ -344,6 +351,10 @@ def drawInstructions(app):
     drawLabel('LEGALS MODE:',675,170,size=12,bold=True)
     drawLabel('MANUAL',635,200,size=12)
     drawLabel('AUTOMATIC',715,200,size=12)
+    drawRect(675,300,100,20,border='black',fill=None,align='center')
+    drawLabel('PLAY SINGLETON',675,300,size=10)
+    drawLabel("Press 'm' to toggle legals mode",675,220,size=10)
+    drawLabel("Press 's' to play singleton",675,280,size=10)
 
 def drawBoard(app):
     for row in range(app.rows):
@@ -445,6 +456,9 @@ def play_onMousePress(app, mouseX, mouseY):
         app.manual = True
     elif 675< mouseX<= 755 and 187.5<=mouseY<=212.5:
         app.manual = False
+        app.userBoard.updateLegals()
+    elif 625<=mouseX<=725 and 290<=mouseY<=310:
+        playSingleton(app)
     if 625<=mouseX<=755 and 33<= mouseY <= 45:
         app.setUserNewBoard = True
         userNewBoard(app)
@@ -524,6 +538,12 @@ def play_onKeyPress(app,key):
                         if app.manual == False:
                             app.userBoard.updateLegals()
                         moveMade(app,app.selection[0],app.selection[1])
+    elif key == 's':
+        playSingleton(app)
+    elif key == 'm':
+        app.manual = not app.manual
+        if not app.manual:
+            app.userBoard.updateLegals()
     elif key == "backspace":
         if app.selection != None:
             if app.selection != None:
@@ -553,7 +573,16 @@ def play_onKeyPress(app,key):
             if findNext(app,list(app.selection),0,-1) != None:
                 app.selection = findNext(app,list(app.selection),0,-1)
 
-def findNext(app, selection,dx,dy):
+def playSingleton(app):
+    for row in range(9):
+        for col in range(9):
+            if len(app.userBoard.legals[row][col]) == 1:
+                app.userBoard.set(row,col,sorted(app.userBoard.legals[row][col])[0])
+                if not app.manual:
+                    app.userBoard.updateLegals()
+                return
+
+def findNext(selection,dx,dy):
     selection[0] += dx
     selection[1] += dy
     if selection[0] < 0 or selection[0] > 8 or selection[1] < 0 or selection[1] > 8:
