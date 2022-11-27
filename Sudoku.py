@@ -578,6 +578,7 @@ def playSingleton(app):
         for col in range(9):
             if len(app.userBoard.legals[row][col]) == 1:
                 app.userBoard.set(row,col,sorted(app.userBoard.legals[row][col])[0])
+                moveMade(app,row,col)
                 if not app.manual:
                     app.userBoard.updateLegals()
                 return
@@ -632,6 +633,7 @@ def isLegalSudoku(grid,row,col):
         for j in range(3):
             if rowsec*3+i != row and colsec*3+j != col:
                 section += [grid[rowsec*3+i][colsec*3+j]]
+    print(section)
     if isRepeat(section,grid[row][col]):
         print("section has repeats")
         return False
