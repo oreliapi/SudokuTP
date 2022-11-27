@@ -182,19 +182,17 @@ def help_onMousePress(app,mouseX,mouseY):
 
 #State Class
 class State:
+    fullLegals = [[],[],[],[],[],[],[],[],[]]
+    for row in range(9):
+            for i in range(9):
+                fullLegals[row].append({'1','2','3','4','5','6','7','8','9'})
     def __init__(self,board):
         self.board = board
-        legals = [[],[],[],[],[],[],[],[],[]]
-        for row in range(9):
-            for i in range(9):
-                legals[row].append({'1','2','3','4','5','6','7','8','9'})
-        self.legals = legals
-        for row in range(9):
-            for col in range(9):
-                self.ban(row,col,self.board[row][col])
+        self.legals = copy.deepcopy(State.fullLegals)
     def set(self,row,col,value):
         self.board[row][col] = value
     def updateLegals(self):
+        self.legals = copy.deepcopy(State.fullLegals)
         for row in range(9):
             for col in range(9):
                 self.ban(row,col,self.board[row][col])
@@ -250,7 +248,6 @@ def newBoard(app):
     app.boardNum = random.randrange(0,3)
     app.givenBoard = boards[app.difficulty][app.boardNum]
     app.userBoard = State(copy.deepcopy(app.givenBoard))
-    #app.userBoard = copy.deepcopy(app.givenBoard)
     app.selection = None
     if app.difficulty == 0:
         app.manual = True
@@ -340,6 +337,13 @@ def drawInstructions(app):
         drawLabel('CLICK HERE TO PLAY YOUR BOARD', 690,80,size=10)
         if app.preventSetting:
             drawLabel('YOUR BOARD MUST BE LEGAL',690,100,size=10,fill='red')
+    if app.manual:
+        drawRect(635,200,80,25,fill='gainsboro',border = 'black',align='center')
+    else:
+        drawRect(715,200,80,25,fill='gainsboro',border = 'black',align='center')
+    drawLabel('LEGALS MODE:',675,170,size=12,bold=True)
+    drawLabel('MANUAL',635,200,size=12)
+    drawLabel('AUTOMATIC',715,200,size=12)
 
 def drawBoard(app):
     for row in range(app.rows):
@@ -358,11 +362,23 @@ def drawNumbers(app):
                 drawLabel(app.userBoard.board[row][col],cellLeft+cellWidth/2,
                         cellTop+cellHeight/2, size = 16)
             else:
-                drawLegals(app.userBoard.legals[row][col],cellLeft+cellWidth/2,
+                drawLegals(app,app.userBoard.legals[row][col],cellLeft+cellWidth/2,
                         cellTop+cellHeight/2)
 
-def drawLegals(legals,midX,midY):
-    for i in range(9)
+def drawLegals(app,legals,midX,midY):
+    cellWidth, cellHeight = getCellSize(app)
+    cellWidth //= 3
+    cellHeight //=3
+    topX,topY = midX-cellWidth, midY-cellHeight
+    row = 0
+    col = 0
+    for i in range(1,10):
+        if str(i) in legals:
+            drawLabel(i,topX+cellWidth*row,topY+cellHeight*col, size=7)
+        row += 1
+        if row == 3:
+            row = 0
+            col += 1
 
 def drawBoardBorder(app):
     drawRect(app.boardLeft, app.boardTop, app.boardWidth, app.boardHeight,
@@ -425,6 +441,10 @@ def play_onMousePress(app, mouseX, mouseY):
                 if 90+20*i<mouseY<110+20*i:
                     app.difficulty = i
             app.setDifficulty = False
+    if 595<=mouseX<675 and 187.5<=mouseY<=212.5:
+        app.manual = True
+    elif 675< mouseX<= 755 and 187.5<=mouseY<=212.5:
+        app.manual = False
     if 625<=mouseX<=755 and 33<= mouseY <= 45:
         app.setUserNewBoard = True
         userNewBoard(app)
@@ -519,8 +539,7 @@ def play_onKeyPress(app,key):
                             moveMade(app,app.selection[0],app.selection[1])
     elif key == "up":
         if app.selection != None and app.selection[0] > 0:
-            if findNext(app,list(app.selection),-1,0) != None:
-                app.selection = findNext(app,list(app.selection),-1,0)
+            app.selection = findNext(app,list(app.selection),-1,0)
     elif key == "down":
         if app.selection != None and app.selection[0] < 8:
             if findNext(app,list(app.selection),1,0) != None:
@@ -537,11 +556,8 @@ def play_onKeyPress(app,key):
 def findNext(app, selection,dx,dy):
     selection[0] += dx
     selection[1] += dy
-    while app.givenBoard[(selection[0])][selection[1]] != "0":
-        selection[0] += dx
-        selection[1] += dy
-        if selection[0] < 0 or selection[0] > 8 or selection[1] < 0 or selection[1] > 8:
-            return None
+    if selection[0] < 0 or selection[0] > 8 or selection[1] < 0 or selection[1] > 8:
+        return None
     return (selection[0],selection[1])
 
 def moveMade(app,row,col):
