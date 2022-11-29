@@ -1,12 +1,8 @@
 import os
-import random
+import random as rand
 import math
 import copy
-
-try: from cmu_cs3_graphics import *
-except: from cmu_graphics import *
-
-import inspect
+from cmu_graphics import *
 
 
 # from https://www.cs.cmu.edu/~112-3/notes/term-project.html
@@ -19,8 +15,7 @@ def writeFile(path, contents):
     with open(path, "wt") as f:
         f.write(contents)
 
-boards = [[],[],[],[],[]]
-solutions = [[],[],[],[],[]]
+boards = [[],[],[],[],[],[]]
 
 def formatBoard(file):
     board = [[],[],[],[],[],[],[],[],[]]
@@ -33,6 +28,9 @@ def formatBoard(file):
             if col == 9:
                 row += 1
                 col = 0
+    for row in range(9):
+        while len(board[row]) != 9:
+            board[row].append('0')
     return board
 
 #from https://www.cs.cmu.edu/~112-3/notes/term-project.html
@@ -51,104 +49,6 @@ for filename in os.listdir('boards'):
             boards[3].append(newBoard)
         elif filename.startswith('evil'):
             boards[4].append(newBoard)
-    elif filename.endswith('.txt') and filename.endswith('solution.txt'):
-        pathToFile = f'boards/{filename}'
-        fileContents = readFile(pathToFile)
-        newBoard = []
-        for number in fileContents:
-            if number != " " and number !=  "\n":
-                newBoard += number
-        if filename.startswith('easy'):
-            solutions[0].append(newBoard)
-        elif filename.startswith('medium'):
-            solutions[1].append(newBoard)
-        elif filename.startswith('hard'):
-            solutions[2].append(newBoard)
-        elif filename.startswith('expert'):
-            solutions[3].append(newBoard)
-        elif filename.startswith('evil'):
-            solutions[4].append(newBoard)
-
-# contents = 'This is just a string. Woohoo!'
-# writeFile('someFolder/myFileName.txt', contents)
-
-#from https://www.cs.cmu.edu/~112-3/notes/runAppWithScreensDemo2.py
-
-##################################################################
-# runAppWithScreens() and setActiveScreen(screen)
-##################################################################
-
-def runAppWithScreens(initialScreen, *args, **kwargs):
-    global _callerGlobals
-    _callerGlobals = inspect.stack()[1][0].f_globals
-
-    appFnNames = ['onAppStart',
-                  'onKeyPress', 'onKeyHold', 'onKeyRelease',
-                  'onMousePress', 'onMouseDrag', 'onMouseRelease',
-                  'onMouseMove', 'onStep', 'redrawAll']
-             
-    def checkForAppFns():
-        globalVars = _callerGlobals # globals()
-        for appFnName in appFnNames:
-            if appFnName in globalVars:
-                raise Exception(f'Do not define {appFnName} when using screens')
-   
-    def getScreenFnNames(appFnName):
-        globalVars = _callerGlobals # globals()
-        screenFnNames = [ ]
-        for globalVarName in globalVars:
-            screenAppSuffix = f'_{appFnName}'
-            if globalVarName.endswith(screenAppSuffix):
-                screenFnNames.append(globalVarName)
-        return screenFnNames
-   
-    def wrapScreenFns():
-        globalVars = _callerGlobals # globals()
-        for appFnName in appFnNames:
-            screenFnNames = getScreenFnNames(appFnName)
-            if (screenFnNames != [ ]) or (appFnName == 'onAppStart'):
-                globalVars[appFnName] = makeAppFnWrapper(appFnName)
-   
-    def makeAppFnWrapper(appFnName):
-        if appFnName == 'onAppStart':
-            def onAppStartWrapper(app):
-                globalVars = _callerGlobals # globals()
-                for screenFnName in getScreenFnNames('onScreenStart'):
-                    screenFn = globalVars[screenFnName]
-                    screenFn(app)
-            return onAppStartWrapper
-        else:
-            def appFnWrapper(*args):
-                globalVars = _callerGlobals # globals()
-                screen = globalVars['_activeScreen']
-                wrappedFnName = ('onScreenStart'
-                                 if appFnName == 'onAppStart' else appFnName)
-                screenFnName = f'{screen}_{wrappedFnName}'
-                if screenFnName in globalVars:
-                    screenFn = globalVars[screenFnName]
-                    return screenFn(*args)
-            return appFnWrapper
-
-    def go():
-        checkForAppFns()
-        wrapScreenFns()
-        setActiveScreen(initialScreen)
-        runApp(*args, **kwargs)
-   
-    go()
-
-def setActiveScreen(screen):
-    globalVars = _callerGlobals # globals()
-    if (screen in [None, '']) or (not isinstance(screen, str)):
-        raise Exception(f'{repr(screen)} is not a valid screen')
-    redrawAllFnName = f'{screen}_redrawAll'
-    if redrawAllFnName not in globalVars:
-        raise Exception(f'Screen {screen} requires {redrawAllFnName}()')
-    globalVars['_activeScreen'] = screen
-
-##################################################################
-# end of runAppWithScreens() and setActiveScreen(screen)
-##################################################################
 
 #Splash Screen
 def splash_onScreenStart(app):
@@ -182,22 +82,26 @@ def help_onMousePress(app,mouseX,mouseY):
 
 #State Class
 class State:
+    emptyLegals = [[],[],[],[],[],[],[],[],[]]
+    for row in range(9):
+            for i in range(9):
+                emptyLegals[row].append(set())
     fullLegals = [[],[],[],[],[],[],[],[],[]]
     for row in range(9):
             for i in range(9):
                 fullLegals[row].append({'1','2','3','4','5','6','7','8','9'})
     def __init__(self,board):
         self.board = board
-        self.legals = copy.deepcopy(State.fullLegals)
+        self.legals = copy.deepcopy(State.emptyLegals)
+        self.startLegals = copy.deepcopy(State.fullLegals)
         for row in range(9):
             for col in range(9):
                 if self.board[row][col] != '0':
-                    self.legals[row][col] = set()
-        self.startLegals = copy.deepcopy(self.legals)
+                    self.startLegals[row][col] = set()
     def set(self,row,col,value):
         self.board[row][col] = value
     def updateLegals(self):
-        self.legals = self.startLegals
+        self.legals = copy.deepcopy(self.startLegals)
         for row in range(9):
             for col in range(9):
                 self.ban(row,col,self.board[row][col])
@@ -248,18 +152,42 @@ def setUpClickBoard(app):
     app.clickSelection = None
 
 def newBoard(app):
+    app.moveCounter = -1
+    app.movesMade = []
     app.illegal = []
     app.won = False
-    app.boardNum = random.randrange(0,3)
+    app.noSingletons = False
+    app.boardNum = rand.randrange(0,3)
     app.givenBoard = boards[app.difficulty][app.boardNum]
+    solveBoard(app)
     app.userBoard = State(copy.deepcopy(app.givenBoard))
     app.selection = None
+    app.legalMode = False
     if app.difficulty == 0:
         app.manual = True
     else:
         app.manual = False
     if not app.manual:
         app.userBoard.updateLegals()
+
+def solveBoard(app):
+    app.solvedBoard = solveHelper(app.givenBoard)
+
+def solveHelper(board):
+    pass
+    # if boardFull(board):
+    #     return board
+    # else:
+    #     for row in range(9):
+    #         for col in range(9):
+    #             if board[row][col] == '0':
+    #                 for val in range(1,10):
+    #                     if isLegalSudokuVal(board,row,col,str(val)):
+    #                         board[row][col] == str(val)
+    #                         if solveHelper(board) != None:
+    #                             return solveHelper(board)
+    #                         board[row][col] == '0'
+    #     return None
         
 def userNewBoard(app):
     app.illegal = []
@@ -270,9 +198,15 @@ def userNewBoard(app):
                     ['0','0','0','0','0','0','0','0','0'],['0','0','0','0','0','0','0','0','0'],
                     ['0','0','0','0','0','0','0','0','0']]
     app.userBoard = State(copy.deepcopy(app.givenBoard))
-    #app.userBoard = copy.deepcopy(app.givenBoard)
     app.selection = None
     app.preventSetting = False
+    app.manual = True
+
+def uniqueNewBoard(app):
+    contents = app.getTextInput('Enter Numbers Here:')
+    fileName = app.getTextInput('Name your board:')
+    writeFile(f'boards/{fileName}.txt', contents)
+    app.givenBoard = formatBoard(contents)
 
 def play_redrawAll(app):
     drawBoard(app)
@@ -336,25 +270,38 @@ def drawInstructions(app):
     drawRect(300,120,80,30,align='center',fill='gainsboro')
     drawLabel('NEW BOARD', 300,120,size = 10)
     drawLabel('BACK TO HOMEPAGE',100,39,size=10)
-    drawLabel('MAKE YOUR OWN BOARD',690,39,size=10)
     if app.won:
         drawLabel('You win!',600,100,size=30)
     if app.setUserNewBoard:
-        drawLabel('SETTING UP YOUR BOARD...', 690,60,size=10)
+        drawLabel('SETTING UP YOUR BOARD...', 690,39,size=10)
+        drawLabel('CLICK HERE TO ENTER TEXT',690,60,size=10)
         drawLabel('CLICK HERE TO PLAY YOUR BOARD', 690,80,size=10)
         if app.preventSetting:
             drawLabel('YOUR BOARD MUST BE LEGAL',690,100,size=10,fill='red')
-    if app.manual:
-        drawRect(635,200,80,25,fill='gainsboro',border = 'black',align='center')
     else:
-        drawRect(715,200,80,25,fill='gainsboro',border = 'black',align='center')
-    drawLabel('LEGALS MODE:',675,170,size=12,bold=True)
-    drawLabel('MANUAL',635,200,size=12)
-    drawLabel('AUTOMATIC',715,200,size=12)
-    drawRect(675,300,100,20,border='black',fill=None,align='center')
-    drawLabel('PLAY SINGLETON',675,300,size=10)
-    drawLabel("Press 'm' to toggle legals mode",675,220,size=10)
-    drawLabel("Press 's' to play singleton",675,280,size=10)
+        drawLabel('MAKE YOUR OWN BOARD',690,39,size=10)
+        if app.manual:
+            drawRect(635,200,80,25,fill='gainsboro',border = 'black',align='center')
+        else:
+            drawRect(715,200,80,25,fill='gainsboro',border = 'black',align='center')
+        drawRect(675,130,180,20,align='center',border = 'black',fill = None)
+        if app.legalMode:
+            drawLabel("Press to exit legal mode or 'l'",675,130,size=12)
+        else:
+            drawLabel("Press to enter legal mode or 'l'",675,130,size=12)
+        drawLabel('LEGALS MODE:',675,170,size=12,bold=True)
+        drawLabel('MANUAL',635,200,size=12)
+        drawLabel('AUTOMATIC',715,200,size=12)
+        drawRect(675,300,100,20,border='black',fill=None,align='center')
+        drawLabel('PLAY SINGLETON',675,300,size=10)
+        drawLabel("Press 'm' to toggle legals mode",675,220,size=10)
+        drawLabel("Press 's' to play singleton",675,280,size=10)
+        if app.noSingletons:
+            drawLabel("There are no available singletons!",675,260,size=10,fill='red')
+        drawRect(620,600,100,25,fill=None,border = 'black',align='center')
+        drawRect(730,600,100,25,fill=None,border = 'black',align='center')
+        drawLabel("Press to Undo or 'u'",620,600,size=10)
+        drawLabel("Press to Redo or 'r'",730,600,size=10)
 
 def drawBoard(app):
     for row in range(app.rows):
@@ -369,7 +316,7 @@ def drawNumbers(app):
             if app.givenBoard[row][col] != "0":
                 drawLabel(app.givenBoard[row][col],cellLeft+cellWidth/2,
                         cellTop+cellHeight/2, bold = True, size = 16)
-            if app.userBoard.board[row][col] in "123456789":
+            elif app.userBoard.board[row][col] in "123456789":
                 drawLabel(app.userBoard.board[row][col],cellLeft+cellWidth/2,
                         cellTop+cellHeight/2, size = 16)
             else:
@@ -385,7 +332,7 @@ def drawLegals(app,legals,midX,midY):
     col = 0
     for i in range(1,10):
         if str(i) in legals:
-            drawLabel(i,topX+cellWidth*row,topY+cellHeight*col, size=7)
+            drawLabel(i,topX+cellWidth*row,topY+cellHeight*col, size=7,fill='dimGray')
         row += 1
         if row == 3:
             row = 0
@@ -402,7 +349,7 @@ def drawBlockBorder(app):
             blockLeft, blockTop = getCellLeftTop(app,i*3,j*3)
             cellWidth, cellHeight = getCellSize(app)
             drawRect(blockLeft, blockTop, cellWidth*3, cellHeight*3,
-                fill=None, border='black', borderWidth=2*app.cellBorderWidth)
+                fill=None, border='dimGray', borderWidth=2*app.cellBorderWidth)
 
 def drawCell(app, row, col):
     cellLeft, cellTop = getCellLeftTop(app, row, col)
@@ -419,7 +366,7 @@ def drawCell(app, row, col):
         else:
             color = None
     drawRect(cellLeft, cellTop, cellWidth, cellHeight,
-             fill=color, border='black',
+             fill=color, border='dimGray',
              borderWidth=app.cellBorderWidth)
 
 def getCellLeftTop(app, row, col):
@@ -435,7 +382,9 @@ def getCellSize(app):
 
 def play_onMousePress(app, mouseX, mouseY):
     if app.setUserNewBoard:
-        if 600 <= mouseX <= 780 and 76 <= mouseY <= 86:
+        if 600 <= mouseX <= 780 and 56 <= mouseY <= 66:
+            uniqueNewBoard(app)
+        elif 600 <= mouseX <= 780 and 76 <= mouseY <= 86:
             if app.illegal != []:
                 app.preventSetting = True
             else:
@@ -456,9 +405,16 @@ def play_onMousePress(app, mouseX, mouseY):
         app.manual = True
     elif 675< mouseX<= 755 and 187.5<=mouseY<=212.5:
         app.manual = False
+        app.noSingletons = False
         app.userBoard.updateLegals()
     elif 625<=mouseX<=725 and 290<=mouseY<=310:
         playSingleton(app)
+    elif 570<=mouseX<=670 and 587.5<=mouseY<=612.5:
+        undoMove(app)
+    elif 680<=mouseX<=780 and 587.5<=mouseY<=612.5:
+        redoMove(app)
+    elif 585<=mouseX<=765 and 120<= mouseY <= 140:
+        app.legalMode = not app.legalMode
     if 625<=mouseX<=755 and 33<= mouseY <= 45:
         app.setUserNewBoard = True
         userNewBoard(app)
@@ -470,12 +426,11 @@ def play_onMousePress(app, mouseX, mouseY):
                 app.givenBoard[app.selection[0]][app.selection[1]] = "0"
                 moveMade(app,app.selection[0],app.selection[1])
             else:
-                if app.givenBoard[app.selection[0]][app.selection[1]] == '0':
-                    app.userBoard.set(app.selection[0],app.selection[1],'0')
-                    #app.userBoard[app.selection[0]][app.selection[1]] = "0"
-                    if app.manual == False:
-                        app.userBoard.updateLegals()
-                    moveMade(app,app.selection[0],app.selection[1])
+                if not app.legalMode:
+                    if app.givenBoard[app.selection[0]][app.selection[1]] == '0':
+                        trackMove(app,app.selection[0],app.selection[1],app.userBoard.board[app.selection[0]][app.selection[1]],'0')
+                        app.userBoard.set(app.selection[0],app.selection[1],'0')
+                        moveMade(app,app.selection[0],app.selection[1])
     else:
         selectedCell = getCell(app, mouseX, mouseY)
         selectedClickCell = getClickCell(app, mouseX, mouseY)
@@ -484,24 +439,22 @@ def play_onMousePress(app, mouseX, mouseY):
                 app.selection = None
             else:
                 app.selection = selectedCell
-        if selectedClickCell != None:
-            if selectedClickCell == app.clickSelection:
-                app.clickSelection = None
-            else:
-                app.clickSelection = selectedClickCell
-        else:
-            app.clickSelection = None
+        app.clickSelection = selectedClickCell
         if app.selection != None and app.clickSelection != None:
             if app.setUserNewBoard:
                 app.givenBoard[app.selection[0]][app.selection[1]] = str(app.clickBoard[app.clickSelection[0]][app.clickSelection[1]])
                 moveMade(app,app.selection[0],app.selection[1])
             else:
                 if app.givenBoard[app.selection[0]][app.selection[1]] == '0':
-                    app.userBoard.set(app.selection[0],app.selection[1],str(app.clickBoard[app.clickSelection[0]][app.clickSelection[1]]))
-                    if app.manual == False:
-                        app.userBoard.updateLegals()
-                    #app.userBoard[app.selection[0]][app.selection[1]] = str(app.clickBoard[app.clickSelection[0]][app.clickSelection[1]])
-                    moveMade(app,app.selection[0],app.selection[1])
+                    if app.legalMode:
+                        if str(app.clickBoard[app.clickSelection[0]][app.clickSelection[1]]) in app.userBoard.legals[app.selection[0]][app.selection[1]]:
+                            app.userBoard.legals[app.selection[0]][app.selection[1]].remove(str(app.clickBoard[app.clickSelection[0]][app.clickSelection[1]]))
+                        else:
+                            app.userBoard.legals[app.selection[0]][app.selection[1]].add(str(app.clickBoard[app.clickSelection[0]][app.clickSelection[1]]))
+                    else:
+                        trackMove(app,app.selection[0],app.selection[1],app.userBoard.board[app.selection[0]][app.selection[1]],str(app.clickBoard[app.clickSelection[0]][app.clickSelection[1]]))
+                        app.userBoard.set(app.selection[0],app.selection[1],str(app.clickBoard[app.clickSelection[0]][app.clickSelection[1]]))
+                        moveMade(app,app.selection[0],app.selection[1])
 
 def getCell(app, x, y):
     dx = x - app.boardLeft
@@ -534,15 +487,27 @@ def play_onKeyPress(app,key):
             else:
                 if app.givenBoard[app.selection[0]][app.selection[1]] == '0':
                     if app.userBoard.board[app.selection[0]][app.selection[1]] != "-1":
-                        app.userBoard.board[app.selection[0]][app.selection[1]] = key
-                        if app.manual == False:
-                            app.userBoard.updateLegals()
-                        moveMade(app,app.selection[0],app.selection[1])
+                        if app.legalMode:
+                            if key in app.userBoard.legals[app.selection[0]][app.selection[1]]:
+                                app.userBoard.legals[app.selection[0]][app.selection[1]].remove(key)
+                            else:
+                                app.userBoard.legals[app.selection[0]][app.selection[1]].add(key)
+                        else:
+                            trackMove(app,app.selection[0],app.selection[1],app.userBoard.board[app.selection[0]][app.selection[1]],key)
+                            app.userBoard.board[app.selection[0]][app.selection[1]] = key
+                            moveMade(app,app.selection[0],app.selection[1])
     elif key == 's':
         playSingleton(app)
+    elif key == 'u':
+        undoMove(app)
+    elif key == 'r':
+        redoMove(app)
+    elif key == 'l':
+        app.legalMode = not app.legalMode
     elif key == 'm':
         app.manual = not app.manual
         if not app.manual:
+            app.noSingletons = False
             app.userBoard.updateLegals()
     elif key == "backspace":
         if app.selection != None:
@@ -551,37 +516,42 @@ def play_onKeyPress(app,key):
                     app.givenBoard[app.selection[0]][app.selection[1]] = '0'
                     moveMade(app,app.selection[0],app.selection[1])
                 else:
-                    if app.givenBoard[app.selection[0]][app.selection[1]] == '0':
-                        if app.userBoard.board[app.selection[0]][app.selection[1]] != "0":
-                            app.userBoard.board[app.selection[0]][app.selection[1]] = "0"
-                            if app.manual == False:
-                                app.userBoard.updateLegals()
-                            moveMade(app,app.selection[0],app.selection[1])
+                    if not app.legalMode:
+                        if app.givenBoard[app.selection[0]][app.selection[1]] == '0':
+                            if app.userBoard.board[app.selection[0]][app.selection[1]] != "0":
+                                trackMove(app,app.selection[0],app.selection[1],app.userBoard.board[app.selection[0]][app.selection[1]],'0')
+                                app.userBoard.board[app.selection[0]][app.selection[1]] = "0"
+                                moveMade(app,app.selection[0],app.selection[1])
+                                if app.manual == False:
+                                    app.userBoard.updateLegals()
     elif key == "up":
         if app.selection != None and app.selection[0] > 0:
-            app.selection = findNext(app,list(app.selection),-1,0)
+            app.selection = findNext(list(app.selection),-1,0)
     elif key == "down":
         if app.selection != None and app.selection[0] < 8:
-            if findNext(app,list(app.selection),1,0) != None:
-                app.selection = findNext(app,list(app.selection),1,0)
+            if findNext(list(app.selection),1,0) != None:
+                app.selection = findNext(list(app.selection),1,0)
     elif key == "right":
         if app.selection != None and app.selection[1] < 8:
-            if findNext(app,list(app.selection),0,1) != None:
-                app.selection = findNext(app,list(app.selection),0,1)
+            if findNext(list(app.selection),0,1) != None:
+                app.selection = findNext(list(app.selection),0,1)
     elif key == "left":
         if app.selection != None and app.selection[1] > 0:
-            if findNext(app,list(app.selection),0,-1) != None:
-                app.selection = findNext(app,list(app.selection),0,-1)
+            if findNext(list(app.selection),0,-1) != None:
+                app.selection = findNext(list(app.selection),0,-1)
 
 def playSingleton(app):
     for row in range(9):
         for col in range(9):
             if len(app.userBoard.legals[row][col]) == 1:
+                trackMove(app,row,col,'0',sorted(app.userBoard.legals[row][col])[0])
                 app.userBoard.set(row,col,sorted(app.userBoard.legals[row][col])[0])
                 moveMade(app,row,col)
                 if not app.manual:
                     app.userBoard.updateLegals()
+                    app.noSingletons = False
                 return
+    app.noSingletons = True
 
 def findNext(selection,dx,dy):
     selection[0] += dx
@@ -590,7 +560,14 @@ def findNext(selection,dx,dy):
         return None
     return (selection[0],selection[1])
 
+def trackMove(app,row,col,oldVal,newVal):
+    app.movesMade += [(row,col,oldVal,newVal)]
+    app.moveCounter = len(app.movesMade)-1
+
 def moveMade(app,row,col):
+    app.noSingletons = False
+    if not app.manual:
+        app.userBoard.updateLegals()
     if app.setUserNewBoard:
         board = app.givenBoard
     else:
@@ -600,16 +577,30 @@ def moveMade(app,row,col):
     else:
         if (row,col) in app.illegal:
             app.illegal.remove((row,col))
-    if boardFull(app) and app.illegal==[]:
+    if boardFull(app.userBoard.board) and app.illegal==[]:
         app.won = True
     if app.setUserNewBoard:
         if app.illegal == []:
             app.preventSetting = False
 
-def boardFull(app):
+def undoMove(app):
+    if app.moveCounter != -1:
+        (row,col,oldVal,_) = app.movesMade[app.moveCounter]
+        app.moveCounter -= 1
+        app.userBoard.set(row,col,oldVal)
+        moveMade(app,row,col)
+
+def redoMove(app):
+    if app.moveCounter != len(app.movesMade) - 1:
+        (row,col,_,newVal) = app.movesMade[app.moveCounter+1]
+        app.moveCounter += 1
+        app.userBoard.set(row,col,newVal)
+        moveMade(app,row,col)
+
+def boardFull(board):
     for row in range(9):
         for col in range(9):
-            if app.userBoard.board[row][col] == '0':
+            if board[row][col] == '0':
                 return False
     return True
 
@@ -633,7 +624,6 @@ def isLegalSudoku(grid,row,col):
         for j in range(3):
             if rowsec*3+i != row and colsec*3+j != col:
                 section += [grid[rowsec*3+i][colsec*3+j]]
-    print(section)
     if isRepeat(section,grid[row][col]):
         print("section has repeats")
         return False
@@ -645,5 +635,29 @@ def isRepeat(L,element):
     else:
         return False
 
-                
+def isLegalSudokuVal(grid,row,col,val):
+    rowInGrid = copy.copy(grid[row])
+    rowInGrid.pop(col)
+    if isRepeat(rowInGrid,val):
+        print("row has repeats")
+        return False
+    column = []
+    for rownum in range(len(grid)):
+        if rownum != row:
+            column += [grid[rownum][col]]
+    if isRepeat(column,val):
+        print("column has repeats")
+        return False
+    rowsec = row//3
+    colsec = col//3
+    section = []
+    for i in range(3):
+        for j in range(3):
+            if rowsec*3+i != row and colsec*3+j != col:
+                section += [grid[rowsec*3+i][colsec*3+j]]
+    if isRepeat(section,val):
+        print("section has repeats")
+        return False
+    return True
+              
 runAppWithScreens(initialScreen='splash',width=800,height=700)
